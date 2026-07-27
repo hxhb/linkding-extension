@@ -11,7 +11,7 @@ export class Options extends LitElement {
     unreadSelected: { type: Boolean, state: true },
     shareSelected: { type: Boolean, state: true },
     useBrowserMetadata: { type: Boolean, state: true },
-    runSinglefile: { type: Boolean, state: true },
+    preselectBackupToSinglefile: { type: Boolean, state: true },
     precacheEnabled: { type: Boolean, state: true },
     closeAddBookmarkWindowOnSave: { type: Boolean, state: true },
     closeAddBookmarkWindowOnSaveMs: { type: Number, state: true },
@@ -27,7 +27,7 @@ export class Options extends LitElement {
     this.unreadSelected = false;
     this.shareSelected = false;
     this.useBrowserMetadata = false;
-    this.runSinglefile = false;
+    this.preselectBackupToSinglefile = false;
     this.precacheEnabled = false;
     this.closeAddBookmarkWindowOnSave = false;
     this.closeAddBookmarkWindowOnSaveMs = 500;
@@ -54,7 +54,7 @@ export class Options extends LitElement {
     this.unreadSelected = config.unreadSelected;
     this.shareSelected = config.shareSelected;
     this.useBrowserMetadata = config.useBrowserMetadata;
-    this.runSinglefile = config.runSinglefile;
+    this.preselectBackupToSinglefile = config.preselectBackupToSinglefile;
     this.precacheEnabled = config.precacheEnabled;
     this.closeAddBookmarkWindowOnSave = config.closeAddBookmarkWindowOnSave;
     this.closeAddBookmarkWindowOnSaveMs = config.closeAddBookmarkWindowOnSaveMs;
@@ -69,7 +69,7 @@ export class Options extends LitElement {
       unreadSelected: this.unreadSelected,
       shareSelected: this.shareSelected,
       useBrowserMetadata: this.useBrowserMetadata,
-      runSinglefile: this.runSinglefile,
+      preselectBackupToSinglefile: this.preselectBackupToSinglefile,
       precacheEnabled: this.precacheEnabled,
       closeAddBookmarkWindowOnSave: this.closeAddBookmarkWindowOnSave,
       closeAddBookmarkWindowOnSaveMs: this.closeAddBookmarkWindowOnSaveMs,
@@ -211,16 +211,17 @@ export class Options extends LitElement {
           <label class="form-checkbox">
             <input
               type="checkbox"
-              .checked="${this.runSinglefile}"
-              @change="${(e) => this.handleInputChange(e, "runSinglefile")}"
+              .checked="${this.preselectBackupToSinglefile}"
+              @change="${(e) =>
+                this.handleInputChange(e, "preselectBackupToSinglefile")}"
             />
             <i class="form-icon"></i>
-            <span>Run Singlefile after adding new bookmark</span>
+            <span>Pre-select backup to Singlefile when adding bookmark</span>
           </label>
           <div class="form-input-hint">
-            Run the Singlefile extension on the current tab after adding a new
-            bookmark. This will save the current page as a single HTML file and
-            attach it as snapshot to the bookmark.
+            Checks the Backup to Singlefile option by default when adding a new
+            bookmark. When selected in the add bookmark form, the extension runs
+            Singlefile on the current tab after saving the bookmark.
             <br />
             <br />
             <strong>Note:</strong> This requires having the Singlefile extension

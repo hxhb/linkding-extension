@@ -6,7 +6,7 @@ const DEFAULTS = {
   token: "",
   default_tags: "",
   useBrowserMetadata: false,
-  runSinglefile: false,
+  preselectBackupToSinglefile: false,
   precacheEnabled: false,
   closeAddBookmarkWindowOnSave: false,
   closeAddBookmarkWindowOnSaveMs: 500,
@@ -15,10 +15,19 @@ const DEFAULTS = {
 export async function getConfiguration() {
   const configJson = await getStorageItem(CONFIG_KEY);
   const config = configJson ? JSON.parse(configJson) : {};
-  return {
+  const normalizedConfig = {
     ...DEFAULTS,
     ...config,
   };
+
+  if (
+    config.preselectBackupToSinglefile === undefined &&
+    config.runSinglefile !== undefined
+  ) {
+    normalizedConfig.preselectBackupToSinglefile = config.runSinglefile;
+  }
+
+  return normalizedConfig;
 }
 
 export async function saveConfiguration(config) {

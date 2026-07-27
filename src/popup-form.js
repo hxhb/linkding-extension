@@ -8,11 +8,16 @@ import {
   runSinglefile,
   removeBadge,
   createTab,
+  getStorageItem,
+  setStorageItem,
 } from "./browser.js";
 import { loadServerMetadata, clearCachedServerMetadata } from "./cache.js";
 import { getProfile, updateProfile } from "./profile.js";
 import { getConfiguration } from "./configuration.js";
 import { icons } from "./icons";
+
+const BOOKMARK_FORM_DRAFT_KEY_PREFIX = "ld_bookmark_form_draft";
+const BOOKMARK_FORM_DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class PopupForm extends LitElement {
   static properties = {
@@ -28,6 +33,7 @@ export class PopupForm extends LitElement {
     autoTags: { type: String, state: true },
     unread: { type: Boolean, state: true },
     shared: { type: Boolean, state: true },
+    backupToSinglefile: { type: Boolean, state: true },
     saveState: { type: String, state: true },
     errorMessage: { type: String, state: true },
     availableTagNames: { type: Array, state: true },
@@ -54,6 +60,7 @@ export class PopupForm extends LitElement {
     this.autoTags = "";
     this.unread = false;
     this.shared = false;
+    this.backupToSinglefile = false;
     this.saveState = "";
     this.errorMessage = "";
     this.availableTagNames = [];
@@ -64,6 +71,7 @@ export class PopupForm extends LitElement {
     this.extensionConfiguration = null;
     this.loading = false;
     this.deleteConfirmVisible = false;
+    this.draftReady = false;
   }
 
   createRenderRoot() {
@@ -88,6 +96,8 @@ export class PopupForm extends LitElement {
   }
 
   async init() {
+    this.draftReady = false;
+
     // First get cached user profile to quickly show something, then update it
     // in the background
     this.profile = await getProfile();
@@ -95,8 +105,12 @@ export class PopupForm extends LitElement {
       this.profile = updatedProfile;
     });
 
+    this.extensionConfiguration = await getConfiguration();
+
     // Load available tags in the background
     this.tags = this.configuration.default_tags;
+    this.backupToSinglefile =
+      this.extensionConfiguration.preselectBackupToSinglefile;
     this.api
       .getTags()
       .catch(() => [])
@@ -106,7 +120,8 @@ export class PopupForm extends LitElement {
 
     // Initialize bookmark form
     await this.initForm();
-    this.extensionConfiguration = await getConfiguration();
+    await this.restoreFormDraft();
+    this.draftReady = true;
   }
 
   async initForm() {
@@ -180,9 +195,10 @@ export class PopupForm extends LitElement {
       this.saveState = "loading";
 
       await this.api.saveBookmark(bookmark, {
-        disable_html_snapshot: this.extensionConfiguration?.runSinglefile,
+        disable_html_snapshot: this.shouldBackupToSinglefile(),
       });
       await clearCachedServerMetadata();
+      await this.clearFormDraft();
 
       this.saveState = "success";
 
@@ -204,10 +220,7 @@ export class PopupForm extends LitElement {
       }
 
       // Run singlefile, if configured
-      if (
-        !this.existingBookmark &&
-        this.extensionConfiguration?.runSinglefile
-      ) {
+      if (this.shouldBackupToSinglefile()) {
         runSinglefile();
       }
     } catch (e) {
@@ -233,6 +246,7 @@ export class PopupForm extends LitElement {
     try {
       await this.api.deleteBookmark(this.existingBookmark.id);
       await clearCachedServerMetadata();
+      await this.clearFormDraft();
       removeBadge(this.tabInfo.id);
       window.close();
     } catch (e) {
@@ -255,15 +269,115 @@ export class PopupForm extends LitElement {
 
   toggleNotes() {
     this.editNotes = !this.editNotes;
+    this.cacheFormDraft();
   }
 
   handleTagsChange(e) {
     this.tags = e.detail.value;
+    this.cacheFormDraft();
   }
 
   handleInputChange(e, property) {
     this[property] =
       e.target.type === "checkbox" ? e.target.checked : e.target.value;
+    this.cacheFormDraft();
+  }
+
+  shouldBackupToSinglefile() {
+    return !this.existingBookmark && this.backupToSinglefile;
+  }
+
+  getFormDraftKey() {
+    if (!this.tabInfo?.id) {
+      return null;
+    }
+
+    return `${BOOKMARK_FORM_DRAFT_KEY_PREFIX}_${this.tabInfo.id}`;
+  }
+
+  async restoreFormDraft() {
+    const key = this.getFormDraftKey();
+    if (!key) {
+      return;
+    }
+
+    const draftJson = await getStorageItem(key);
+    if (!draftJson) {
+      return;
+    }
+
+    let draft;
+    try {
+      draft = JSON.parse(draftJson);
+    } catch (e) {
+      await this.clearFormDraft();
+      return;
+    }
+
+    const currentBookmarkId = this.existingBookmark?.id ?? null;
+    const draftBookmarkId = draft.existingBookmarkId ?? null;
+    const isExpired =
+      !draft.updatedAt ||
+      Date.now() - draft.updatedAt > BOOKMARK_FORM_DRAFT_TTL_MS;
+
+    if (
+      isExpired ||
+      draft.pageUrl !== this.tabInfo.url ||
+      draftBookmarkId !== currentBookmarkId
+    ) {
+      await this.clearFormDraft();
+      return;
+    }
+
+    this.url = draft.url ?? this.url;
+    this.title = draft.title ?? this.title;
+    this.description = draft.description ?? this.description;
+    this.notes = draft.notes ?? this.notes;
+    this.tags = draft.tags ?? this.tags;
+    this.unread = draft.unread ?? this.unread;
+    this.shared = draft.shared ?? this.shared;
+    this.backupToSinglefile =
+      draft.backupToSinglefile ?? this.backupToSinglefile;
+    this.editNotes = draft.editNotes ?? this.editNotes;
+  }
+
+  cacheFormDraft() {
+    if (!this.draftReady) {
+      return;
+    }
+
+    const key = this.getFormDraftKey();
+    if (!key) {
+      return;
+    }
+
+    const draft = {
+      pageUrl: this.tabInfo.url,
+      existingBookmarkId: this.existingBookmark?.id ?? null,
+      updatedAt: Date.now(),
+      url: this.url,
+      title: this.title,
+      description: this.description,
+      notes: this.notes,
+      tags: this.tags,
+      unread: this.unread,
+      shared: this.shared,
+      backupToSinglefile: this.backupToSinglefile,
+      editNotes: this.editNotes,
+    };
+
+    setStorageItem(key, JSON.stringify(draft)).catch((e) => {
+      console.error("Failed to cache bookmark form draft", e);
+    });
+  }
+
+  async clearFormDraft() {
+    const key = this.getFormDraftKey();
+    if (!key) {
+      return;
+    }
+
+    await setStorageItem(key, null);
   }
 
   render() {
@@ -402,6 +516,22 @@ export class PopupForm extends LitElement {
               `
             : ""}
         </div>
+        ${!this.existingBookmark
+          ? html`
+              <div class="form-group">
+                <label class="form-checkbox">
+                  <input
+                    type="checkbox"
+                    .checked="${this.backupToSinglefile}"
+                    @change="${(e) =>
+                      this.handleInputChange(e, "backupToSinglefile")}"
+                  />
+                  <i class="form-icon"></i>
+                  <span>Backup to Singlefile</span>
+                </label>
+              </div>
+            `
+          : nothing}
         <div class="footer">
           ${this.saveState === "success"
             ? html`
