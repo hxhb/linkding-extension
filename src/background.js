@@ -8,6 +8,7 @@ import {
 import { loadServerMetadata } from "./cache";
 import { getConfiguration, isConfigurationComplete } from "./configuration";
 import { LinkdingApi } from "./linkding";
+import { stripQueryParametersForMatchingDomain } from "./url-cleanup";
 
 const browser = getBrowser();
 let api = null;
@@ -29,6 +30,14 @@ async function initApi() {
   }
 
   return api !== null;
+}
+
+async function getBookmarkUrl(url) {
+  const config = configuration || (await getConfiguration());
+  return stripQueryParametersForMatchingDomain(
+    url,
+    config.stripQueryParametersDomains,
+  );
 }
 
 /* Dynamic badge */
@@ -108,7 +117,8 @@ browser.omnibox.onInputEntered.addListener(async (content, disposition) => {
 
 browser.tabs.onActivated.addListener(async (activeInfo) => {
   const tabInfo = await getCurrentTabInfo();
-  let tabMetadata = await loadServerMetadata(tabInfo.url, true);
+  const url = await getBookmarkUrl(tabInfo.url);
+  let tabMetadata = await loadServerMetadata(url, true);
   setDynamicBadge(activeInfo.tabId, tabMetadata);
 });
 
@@ -119,7 +129,8 @@ browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     return;
   }
 
-  let tabMetadata = await loadServerMetadata(tab.url, true);
+  const url = await getBookmarkUrl(tab.url);
+  let tabMetadata = await loadServerMetadata(url, true);
   setDynamicBadge(tabId, tabMetadata);
 });
 
@@ -146,6 +157,7 @@ async function saveToLinkding(url) {
   }
 
   try {
+    url = await getBookmarkUrl(url);
     const serverMetadata = await loadServerMetadata(url, false);
     const title = serverMetadata.metadata.title ?? "";
     const description = serverMetadata.metadata.description ?? "";

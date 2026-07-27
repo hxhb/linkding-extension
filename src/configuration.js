@@ -6,6 +6,7 @@ const DEFAULTS = {
   token: "",
   default_tags: "",
   useBrowserMetadata: false,
+  stripQueryParametersDomains: "",
   preselectBackupToSinglefile: false,
   precacheEnabled: false,
   closeAddBookmarkWindowOnSave: false,

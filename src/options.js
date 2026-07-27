@@ -11,6 +11,7 @@ export class Options extends LitElement {
     unreadSelected: { type: Boolean, state: true },
     shareSelected: { type: Boolean, state: true },
     useBrowserMetadata: { type: Boolean, state: true },
+    stripQueryParametersDomains: { type: String, state: true },
     preselectBackupToSinglefile: { type: Boolean, state: true },
     precacheEnabled: { type: Boolean, state: true },
     closeAddBookmarkWindowOnSave: { type: Boolean, state: true },
@@ -27,6 +28,7 @@ export class Options extends LitElement {
     this.unreadSelected = false;
     this.shareSelected = false;
     this.useBrowserMetadata = false;
+    this.stripQueryParametersDomains = "";
     this.preselectBackupToSinglefile = false;
     this.precacheEnabled = false;
     this.closeAddBookmarkWindowOnSave = false;
@@ -54,6 +56,7 @@ export class Options extends LitElement {
     this.unreadSelected = config.unreadSelected;
     this.shareSelected = config.shareSelected;
     this.useBrowserMetadata = config.useBrowserMetadata;
+    this.stripQueryParametersDomains = config.stripQueryParametersDomains;
     this.preselectBackupToSinglefile = config.preselectBackupToSinglefile;
     this.precacheEnabled = config.precacheEnabled;
     this.closeAddBookmarkWindowOnSave = config.closeAddBookmarkWindowOnSave;
@@ -69,6 +72,7 @@ export class Options extends LitElement {
       unreadSelected: this.unreadSelected,
       shareSelected: this.shareSelected,
       useBrowserMetadata: this.useBrowserMetadata,
+      stripQueryParametersDomains: this.stripQueryParametersDomains,
       preselectBackupToSinglefile: this.preselectBackupToSinglefile,
       precacheEnabled: this.precacheEnabled,
       closeAddBookmarkWindowOnSave: this.closeAddBookmarkWindowOnSave,
@@ -167,6 +171,27 @@ export class Options extends LitElement {
           </label>
           <div class="form-input-hint">
             Marks new bookmarks as unread by default.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="input-strip-query-parameters-domains"
+            >Remove URL parameters for matching domains</label
+          >
+          <textarea
+            class="form-input"
+            id="input-strip-query-parameters-domains"
+            rows="4"
+            placeholder="example.com"
+            .value="${this.stripQueryParametersDomains}"
+            @input="${(e) =>
+              this.handleInputChange(e, "stripQueryParametersDomains")}"
+          ></textarea>
+          <div class="form-input-hint">
+            Enter one domain per line. A rule like
+            <samp>example.com</samp> matches both <samp>example.com</samp> and
+            its subdomains. Matching URLs have query parameters removed before
+            checking and saving a bookmark; URL fragments are kept.
           </div>
         </div>
 

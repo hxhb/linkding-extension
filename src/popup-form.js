@@ -15,6 +15,7 @@ import { loadServerMetadata, clearCachedServerMetadata } from "./cache.js";
 import { getProfile, updateProfile } from "./profile.js";
 import { getConfiguration } from "./configuration.js";
 import { icons } from "./icons";
+import { stripQueryParametersForMatchingDomain } from "./url-cleanup.js";
 
 const BOOKMARK_FORM_DRAFT_KEY_PREFIX = "ld_bookmark_form_draft";
 const BOOKMARK_FORM_DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -126,7 +127,7 @@ export class PopupForm extends LitElement {
 
   async initForm() {
     this.tabInfo = await getCurrentTabInfo();
-    this.url = this.tabInfo.url;
+    this.url = this.getBookmarkUrl(this.tabInfo.url);
 
     this.loading = true;
 
@@ -177,6 +178,7 @@ export class PopupForm extends LitElement {
 
   async handleSubmit(e) {
     e.preventDefault();
+    this.url = this.getBookmarkUrl(this.url);
     const tagNames = this.tags
       .split(" ")
       .map((tag) => tag.trim())
@@ -287,6 +289,13 @@ export class PopupForm extends LitElement {
     return !this.existingBookmark && this.backupToSinglefile;
   }
 
+  getBookmarkUrl(url) {
+    return stripQueryParametersForMatchingDomain(
+      url,
+      this.extensionConfiguration?.stripQueryParametersDomains,
+    );
+  }
+
   getFormDraftKey() {
     if (!this.tabInfo?.id) {
       return null;
@@ -329,7 +338,7 @@ export class PopupForm extends LitElement {
       return;
     }
 
-    this.url = draft.url ?? this.url;
+    this.url = this.getBookmarkUrl(draft.url ?? this.url);
     this.title = draft.title ?? this.title;
     this.description = draft.description ?? this.description;
     this.notes = draft.notes ?? this.notes;
