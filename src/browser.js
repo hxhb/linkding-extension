@@ -32,16 +32,25 @@ function useChromeScripting() {
   return typeof chrome !== "undefined" && !!chrome.scripting;
 }
 
+function canAccessTabContent(url) {
+  return !!url && /^http(s)?:\/\//.test(url);
+}
+
 export async function getBrowserMetadata() {
   const tabs = await getBrowser().tabs.query({
     active: true,
     currentWindow: true,
   });
   const tab = tabs && tabs[0];
+  const fallbackMetadata = { title: tab?.title || "", description: "" };
+
+  if (!canAccessTabContent(tab?.url)) {
+    return fallbackMetadata;
+  }
 
   const errorHandler = (error) => {
     console.error("Failed to load browser metadata", error);
-    return { title: "", description: "" };
+    return fallbackMetadata;
   };
 
   if (useChromeScripting()) {

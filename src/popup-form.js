@@ -137,7 +137,7 @@ export class PopupForm extends LitElement {
 
     this.loading = false;
 
-    if (this.configuration.useBrowserMetadata) {
+    if (this.configuration.useBrowserMetadata || !serverMetadata) {
       this.title = browserMetadata.title;
       this.description = browserMetadata.description;
     } else {
